@@ -1,0 +1,1158 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>الدرس النموذجي التفاعلي: Personal Interests - مزامنة الصوت والنصوص</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- Google Fonts: Cairo for Arabic & Poppins/Inter for English -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&family=Poppins:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <!-- Canvas Confetti for celebratory feedback -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+
+    <style>
+        body {
+            font-family: 'Cairo', sans-serif;
+            background: radial-gradient(circle at top left, #fdfbf7 0%, #edf2f7 50%, #e2e8f0 100%);
+        }
+        .font-en {
+            font-family: 'Poppins', sans-serif;
+        }
+        /* Enforce strict LTR alignment on all English targets so words never shift right */
+        .sync-target, [dir="ltr"] {
+            direction: ltr !important;
+            text-align: left !important;
+            unicode-bidi: isolate;
+        }
+        /* Word highlight animation during audio playback */
+        .karaoke-word {
+            display: inline-block;
+            direction: ltr !important;
+            unicode-bidi: isolate;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            padding: 0 3px;
+            border-radius: 4px;
+        }
+        .karaoke-active {
+            background: linear-gradient(120deg, #fef08a 0%, #fde047 100%);
+            color: #854d0e !important;
+            transform: scale(1.15) translateY(-2px);
+            font-weight: 800 !important;
+            box-shadow: 0 4px 10px rgba(250, 204, 21, 0.4);
+            border-bottom: 2px solid #ca8a04;
+        }
+        .sentence-active-container {
+            background-color: #f0fdf4 !important;
+            border-color: #22c55e !important;
+            box-shadow: 0 10px 25px -5px rgba(34, 197, 94, 0.15);
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+        /* Pulse wave animation for audio playing */
+        @keyframes pulse-ring {
+            0% { transform: scale(0.95); opacity: 0.8; }
+            50% { transform: scale(1.12); opacity: 0.4; }
+            100% { transform: scale(0.95); opacity: 0.8; }
+        }
+        .pulse-sound {
+            animation: pulse-ring 1.5s infinite ease-in-out;
+        }
+    </style>
+</head>
+<body class="text-slate-800 antialiased min-h-screen pb-16">
+
+    <!-- Sticky Audio Control Header -->
+    <header class="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-slate-200 shadow-sm transition-all">
+        <div class="max-w-6xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-4">
+            <!-- Brand & Unit Tag -->
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 bg-gradient-to-tr from-purple-600 to-indigo-500 rounded-2xl flex items-center justify-center text-white shadow-md shadow-indigo-200">
+                    <span class="font-en text-2xl font-black">1</span>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <span class="bg-indigo-100 text-indigo-700 text-xs px-2.5 py-0.5 rounded-full font-bold">LANGUA LEARN</span>
+                        <span class="text-xs text-slate-500">الوحدة الأولى - صفحة 10</span>
+                    </div>
+                    <h1 class="font-en font-bold text-lg md:text-xl text-slate-900 tracking-tight">Personal Interests</h1>
+                </div>
+            </div>
+
+            <!-- Central Audio Player Controller -->
+            <div class="flex items-center bg-slate-100 p-1.5 rounded-2xl border border-slate-200 shadow-inner gap-2 flex-wrap sm:flex-nowrap">
+                <button id="masterPlayBtn" onclick="toggleMasterLessonAudio()" class="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-xl font-bold shadow-md hover:from-emerald-600 hover:to-teal-700 active:scale-95 transition">
+                    <i id="masterPlayIcon" class="fa-solid fa-play"></i>
+                    <span id="masterPlayText">استمع للدرس كاملاً</span>
+                </button>
+
+                <button onclick="stopAllSpeech()" title="إيقاف مؤقت / إنهاء" class="p-2.5 text-slate-600 hover:bg-white rounded-xl hover:text-rose-500 active:scale-95 transition">
+                    <i class="fa-solid fa-stop"></i>
+                </button>
+
+                <!-- Speed Control -->
+                <div class="flex items-center gap-1 bg-white px-2.5 py-1 rounded-xl border border-slate-200 text-xs font-bold">
+                    <i class="fa-solid fa-gauge-high text-slate-400"></i>
+                    <label for="speedSelect" class="text-slate-500">السرعة:</label>
+                    <select id="speedSelect" onchange="updatePlaybackSpeed(this.value)" class="bg-transparent text-indigo-600 font-bold outline-none cursor-pointer">
+                        <option value="0.8">0.8x (تعليمي بطيء)</option>
+                        <option value="0.95" selected>0.95x (واضح ومثالي)</option>
+                        <option value="1.0">1.0x (طبيعي)</option>
+                        <option value="1.2">1.2x (سريع)</option>
+                    </select>
+                </div>
+
+                <!-- Enhanced Voice Selection & Quality Badge -->
+                <div class="flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-xl border border-indigo-200 text-xs shadow-sm">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" title="صوت مفعل"></span>
+                    <i class="fa-solid fa-wand-magic-sparkles text-amber-500"></i>
+                    <select id="voiceSelect" onchange="changeVoice(this.value)" class="bg-transparent text-slate-800 font-bold text-xs outline-none max-w-[145px] sm:max-w-[170px] truncate cursor-pointer">
+                        <option value="">جاري البحث عن أفضل صوت...</option>
+                    </select>
+                    <!-- Quick Test Voice Button -->
+                    <button onclick="testCurrentVoice()" title="جرّب هذا الصوت الآن" class="px-2 py-0.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold rounded-lg border border-indigo-200 transition text-[11px] flex items-center gap-1">
+                        <i class="fa-solid fa-volume-low"></i>
+                        <span>معاينة</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Language & Audio Mode Guide -->
+            <div class="flex items-center gap-2">
+                <button onclick="toggleHighlightModeGuide()" class="px-3 py-1.5 text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-circle-info text-sky-500"></i>
+                    <span>دليل التزامن</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto px-4 mt-6 space-y-8">
+        
+        <!-- Quick Guidance Banner -->
+        <div id="guideBanner" class="bg-gradient-to-r from-blue-500/10 via-indigo-500/10 to-purple-500/10 border border-indigo-200 rounded-3xl p-4 flex flex-col md:flex-row items-center justify-between gap-4">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-2xl bg-indigo-600 text-white flex items-center justify-center text-lg flex-shrink-0">
+                    <i class="fa-solid fa-headphones-simple"></i>
+                </div>
+                <div>
+                    <h3 class="font-bold text-slate-900 text-sm">خاصية القراءة المتزامنة (Audio-Text Sync)</h3>
+                    <p class="text-xs text-slate-600">انقر على أي جملة أو صورة للاستماع لنطقها مع تتبع الكلمات كلمة بكلمة بلون أصفر مميز، أو اضغط زر "استمع للدرس كاملاً" في الأعلى.</p>
+                </div>
+            </div>
+            <div class="flex gap-2">
+                <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                    <span class="w-2 h-2 rounded-full bg-amber-500 inline-block ml-1 animate-ping"></span>
+                    تلوين الكلمة المنطوقة
+                </span>
+                <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                    <i class="fa-solid fa-check ml-1"></i> تمارين تفاعلية
+                </span>
+            </div>
+        </div>
+
+        <!-- SECTION: Lesson Page Simulation (Browser Frame) -->
+        <div class="bg-white rounded-3xl shadow-xl border border-slate-200/80 overflow-hidden">
+            <!-- Browser Chrome Top Bar -->
+            <div class="bg-slate-100 px-5 py-3 border-b border-slate-200 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <span class="w-3.5 h-3.5 rounded-full bg-rose-400 inline-block"></span>
+                    <span class="w-3.5 h-3.5 rounded-full bg-amber-400 inline-block"></span>
+                    <span class="w-3.5 h-3.5 rounded-full bg-emerald-400 inline-block"></span>
+                </div>
+                <div class="w-2/3 max-w-md bg-white border border-slate-200 rounded-xl px-4 py-1 text-center text-xs text-slate-500 font-mono flex items-center justify-center gap-2 font-en">
+                    <i class="fa-solid fa-lock text-emerald-500 text-[10px]"></i>
+                    https://youth-center.org/activities/personal-interests
+                </div>
+                <div class="flex items-center gap-3 text-slate-400 text-xs">
+                    <i class="fa-solid fa-arrow-rotate-right cursor-pointer hover:text-slate-600"></i>
+                    <i class="fa-solid fa-bookmark cursor-pointer hover:text-slate-600"></i>
+                </div>
+            </div>
+
+            <!-- Page Inner Content -->
+            <div class="p-6 md:p-8 space-y-8">
+
+                <!-- Big Header from Book -->
+                <div id="hero" class="text-center space-y-3 relative">
+                    <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-purple-100 border border-purple-200 text-purple-800 text-xs font-bold">
+                        <i class="fa-solid fa-star text-amber-500"></i>
+                        <span>Join an activity at the youth center!</span>
+                    </div>
+
+                    <div class="flex items-center justify-center gap-4 flex-wrap">
+                        <span class="bg-gradient-to-r from-pink-500 to-rose-500 text-white font-black text-xs px-3 py-1.5 rounded-lg shadow uppercase tracking-wider transform -rotate-3">
+                            YOUTH CENTER
+                        </span>
+                        <h2 class="text-2xl md:text-4xl font-extrabold font-en text-slate-900 tracking-tight">
+                            Join the Most <span class="text-sky-500 underline decoration-wavy decoration-sky-300">Popular</span> Youth Center Around!
+                        </h2>
+                    </div>
+
+                    <p class="font-en text-slate-600 text-sm md:text-base max-w-2xl mx-auto flex items-center justify-center gap-2">
+                        <span>Click <a href="#cardsSection" class="text-indigo-600 font-bold underline hover:text-indigo-800">here</a> to find out about all our <span class="text-teal-600 font-bold">interesting</span> events.</span>
+                        <button onclick="speakSentence('Click here to find out about all our interesting events.', this)" title="استمع لهذه العبارة" class="w-7 h-7 rounded-full bg-teal-50 text-teal-600 hover:bg-teal-100 flex items-center justify-center text-xs transition">
+                            <i class="fa-solid fa-volume-high"></i>
+                        </button>
+                    </p>
+                </div>
+
+                <!-- Three Activity Cards Grid -->
+                <div id="cardsSection" class="grid grid-cols-1 md:grid-cols-3 gap-6 font-en" dir="ltr">
+                    
+                    <!-- Card 1: Friday Movies -->
+                    <div class="activity-card group bg-gradient-to-b from-sky-50/50 to-white rounded-2xl border-2 border-sky-100 p-4 transition-all duration-300 hover:shadow-xl hover:border-sky-300 flex flex-col justify-between" id="card-friday">
+                        <div>
+                            <div class="relative rounded-xl overflow-hidden mb-3 aspect-[4/3] bg-slate-900 flex items-center justify-center">
+                                <img src="https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=600&q=80" 
+                                     alt="Movie theater kids" 
+                                     class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-90"
+                                     onerror="this.src='https://placehold.co/600x450/0284c7/ffffff?text=Movie+Nights';">
+                                <span class="absolute top-2 left-2 bg-black/60 backdrop-blur-md text-white text-xs px-2.5 py-1 rounded-full font-bold">
+                                    <i class="fa-solid fa-film text-amber-400 mr-1"></i> Cinema
+                                </span>
+                                <button onclick="speakCardAudio('fridayText', this)" class="absolute bottom-3 right-3 w-10 h-10 rounded-full bg-white text-sky-600 shadow-lg flex items-center justify-center hover:bg-sky-50 hover:scale-110 active:scale-95 transition">
+                                    <i class="fa-solid fa-play text-sm"></i>
+                                </button>
+                            </div>
+                            <div class="text-left">
+                                <span class="text-xs font-bold text-sky-600 uppercase tracking-wider">Friday Event</span>
+                                <p id="fridayText" class="mt-1 text-slate-800 text-sm font-semibold leading-relaxed sync-target">
+                                    <span class="text-sky-600 font-extrabold">Funny</span> Fridays—our fun movie nights!
+                                </p>
+                            </div>
+                        </div>
+                        <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500" dir="rtl">
+                            <span class="bg-sky-100 text-sky-800 font-bold px-2 py-0.5 rounded">الصفة: Funny (مضحك/ممتع)</span>
+                            <span class="text-[11px] text-slate-400 font-en">🎬 6:00 PM</span>
+                        </div>
+                    </div>
+
+                    <!-- Card 2: Saturday Game Night (Ping-Pong / Table Tennis) -->
+                    <div class="activity-card group bg-gradient-to-b from-purple-50/50 to-white rounded-2xl border-2 border-purple-100 p-4 transition-all duration-300 hover:shadow-xl hover:border-purple-300 flex flex-col justify-between" id="card-saturday">
+                        <div>
+                            <div class="relative rounded-xl overflow-hidden mb-3 aspect-[4/3] bg-slate-900 flex items-center justify-center">
+                                <img src="https://images.unsplash.com/photo-1534158914592-062992fbe900?auto=format&fit=crop&w=600&q=80" 
+                                     alt="Table tennis ping pong players" 
+                                     class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-90"
+                                     onerror="this.src='https://placehold.co/600x450/7e22ce/ffffff?text=Table+Tennis';">
+                                <span class="absolute top-2 left-2 bg-black/60 backdrop-blur-md text-white text-xs px-2.5 py-1 rounded-full font-bold">
+                                    <i class="fa-solid fa-table-tennis-paddle-ball text-pink-400 mr-1"></i> Games
+                                </span>
+                                <button onclick="speakCardAudio('saturdayText', this)" class="absolute bottom-3 right-3 w-10 h-10 rounded-full bg-white text-purple-600 shadow-lg flex items-center justify-center hover:bg-purple-50 hover:scale-110 active:scale-95 transition">
+                                    <i class="fa-solid fa-play text-sm"></i>
+                                </button>
+                            </div>
+                            <div class="text-left">
+                                <span class="text-xs font-bold text-purple-600 uppercase tracking-wider">Saturday Event</span>
+                                <p id="saturdayText" class="mt-1 text-slate-800 text-sm font-semibold leading-relaxed sync-target">
+                                    Join our Saturday game night. You might be <span class="text-purple-600 font-extrabold">lucky</span> and win a <span class="text-purple-600 font-extrabold">special</span> prize! ✨
+                                </p>
+                            </div>
+                        </div>
+                        <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500" dir="rtl">
+                            <span class="bg-purple-100 text-purple-800 font-bold px-2 py-0.5 rounded">الصفات: lucky & special</span>
+                            <span class="text-[11px] text-slate-400 font-en">🏓 7:30 PM</span>
+                        </div>
+                    </div>
+
+                    <!-- Card 3: Outdoor Sports / Basketball -->
+                    <div class="activity-card group bg-gradient-to-b from-amber-50/50 to-white rounded-2xl border-2 border-amber-100 p-4 transition-all duration-300 hover:shadow-xl hover:border-amber-300 flex flex-col justify-between" id="card-sports">
+                        <div>
+                            <div class="relative rounded-xl overflow-hidden mb-3 aspect-[4/3] bg-slate-900 flex items-center justify-center">
+                                <img src="https://images.unsplash.com/photo-1546519638-68e109498ffc?auto=format&fit=crop&w=600&q=80" 
+                                     alt="Basketball court youth" 
+                                     class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-90"
+                                     onerror="this.src='https://placehold.co/600x450/ea580c/ffffff?text=Basketball';">
+                                <span class="absolute top-2 left-2 bg-black/60 backdrop-blur-md text-white text-xs px-2.5 py-1 rounded-full font-bold">
+                                    <i class="fa-solid fa-basketball text-orange-400 mr-1"></i> Sports
+                                </span>
+                                <button onclick="speakCardAudio('sportsText', this)" class="absolute bottom-3 right-3 w-10 h-10 rounded-full bg-white text-amber-600 shadow-lg flex items-center justify-center hover:bg-amber-50 hover:scale-110 active:scale-95 transition">
+                                    <i class="fa-solid fa-play text-sm"></i>
+                                </button>
+                            </div>
+                            <div class="text-left">
+                                <span class="text-xs font-bold text-amber-600 uppercase tracking-wider">Outdoors & Gym</span>
+                                <p id="sportsText" class="mt-1 text-slate-800 text-sm font-semibold leading-relaxed sync-target">
+                                    You'll have a <span class="text-rose-500 font-extrabold">wonderful</span> time! 😍
+                                </p>
+                            </div>
+                        </div>
+                        <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500" dir="rtl">
+                            <span class="bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded">الصفة: wonderful (رائع)</span>
+                            <span class="text-[11px] text-slate-400 font-en">🏀 All Day</span>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- SECTION: Interactive Exercise: Listen, point, and write the names -->
+                <div class="mt-10 border-t-2 border-dashed border-slate-200 pt-8">
+                    
+                    <!-- Exercise Header & Word Bank -->
+                    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <span class="w-6 h-6 rounded-full bg-slate-900 text-white text-xs font-bold flex items-center justify-center font-en">1</span>
+                                <h3 class="font-bold text-slate-900 text-base md:text-lg flex items-center gap-2">
+                                    <i class="fa-solid fa-headphones text-indigo-600"></i>
+                                    <span>Listen, point, and write the names</span>
+                                    <span class="text-xs text-slate-500 font-normal font-en">(استمع، حدد، واكتب الاسم المناسب)</span>
+                                </h3>
+                            </div>
+                            <p class="text-xs text-slate-500 mt-1">استمع لتعليق كل طالب، ثم اختر الاسم الصحيح من بنك الأسماء:</p>
+                        </div>
+
+                        <!-- Word Bank Buttons (Interactive / Draggable feeling) -->
+                        <div class="flex items-center gap-2 flex-wrap bg-slate-100 p-2 rounded-2xl border border-slate-200">
+                            <span class="text-xs font-bold text-slate-500 px-2">بنك الأسماء:</span>
+                            <span class="px-3.5 py-1.5 bg-white text-sky-700 font-en font-bold rounded-xl shadow-sm border border-sky-200 text-sm select-none cursor-grab hover:bg-sky-50 transition">
+                                <i class="fa-regular fa-user mr-1 text-xs"></i> Abi
+                            </span>
+                            <span class="px-3.5 py-1.5 bg-white text-emerald-700 font-en font-bold rounded-xl shadow-sm border border-emerald-200 text-sm select-none cursor-grab hover:bg-emerald-50 transition">
+                                <i class="fa-regular fa-user mr-1 text-xs"></i> Noah
+                            </span>
+                            <span class="px-3.5 py-1.5 bg-white text-purple-700 font-en font-bold rounded-xl shadow-sm border border-purple-200 text-sm select-none cursor-grab hover:bg-purple-50 transition">
+                                <i class="fa-regular fa-user mr-1 text-xs"></i> Kinsley
+                            </span>
+                            <span class="px-3.5 py-1.5 bg-white text-amber-700 font-en font-bold rounded-xl shadow-sm border border-amber-200 text-sm select-none cursor-grab hover:bg-amber-50 transition">
+                                <i class="fa-regular fa-user mr-1 text-xs"></i> Jack
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Comments List with Real-time Speech Karaoke Sync -->
+                    <div class="space-y-4 font-en" dir="ltr">
+
+                        <!-- Comment 1: Abi (Pre-filled as example from textbook) -->
+                        <div id="comment-box-1" class="comment-row bg-slate-50/70 border-2 border-slate-200 rounded-2xl p-4 transition-all duration-300 hover:border-indigo-300">
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                <div class="flex items-center gap-3">
+                                    <span class="text-slate-400 font-bold text-sm w-4">1.</span>
+                                    <!-- Input / Dropdown for Name -->
+                                    <div class="relative">
+                                        <select id="userAnswer1" disabled class="bg-indigo-50 border-2 border-indigo-300 text-indigo-700 font-bold py-1.5 px-3 rounded-xl text-sm outline-none cursor-not-allowed">
+                                            <option value="Abi" selected>Abi (مثال)</option>
+                                        </select>
+                                    </div>
+                                    <!-- Text Content with Word Spans for Sync -->
+                                    <p id="comment-text-1" class="text-slate-800 text-sm sm:text-base font-medium">
+                                        "The game night was great! The games were <span class="text-cyan-600 font-bold">amazing</span>! 😂"
+                                    </p>
+                                </div>
+                                <!-- Audio Button for this line -->
+                                <div class="flex items-center gap-2 self-end sm:self-center">
+                                    <button onclick="playCommentAudio(1, 'The game night was great! The games were amazing!')" class="audio-btn-1 flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-indigo-600 hover:bg-indigo-50 font-bold text-xs shadow-sm transition">
+                                        <i class="fa-solid fa-volume-high"></i>
+                                        <span>استمع</span>
+                                    </button>
+                                    <span id="badge-feedback-1" class="text-xs font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-lg">
+                                        <i class="fa-solid fa-check"></i> مؤكد
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Comment 2: Noah -->
+                        <div id="comment-box-2" class="comment-row bg-slate-50/70 border-2 border-slate-200 rounded-2xl p-4 transition-all duration-300 hover:border-indigo-300">
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                <div class="flex items-center gap-3">
+                                    <span class="text-slate-400 font-bold text-sm w-4">2.</span>
+                                    <!-- Select for Name -->
+                                    <div class="relative">
+                                        <select id="userAnswer2" class="bg-white border-2 border-slate-300 text-slate-800 font-bold py-1.5 px-3 rounded-xl text-sm outline-none focus:border-indigo-500 transition cursor-pointer">
+                                            <option value="">-- اختر الاسم --</option>
+                                            <option value="Noah">Noah</option>
+                                            <option value="Kinsley">Kinsley</option>
+                                            <option value="Jack">Jack</option>
+                                        </select>
+                                    </div>
+                                    <!-- Text Content -->
+                                    <p id="comment-text-2" class="text-slate-800 text-sm sm:text-base font-medium">
+                                        "Yes, everyone is <span class="text-amber-600 font-bold">friendly</span> 🙂 and the place is <span class="text-teal-600 font-bold">excellent</span>! 👍"
+                                    </p>
+                                </div>
+                                <div class="flex items-center gap-2 self-end sm:self-center">
+                                    <button onclick="playCommentAudio(2, 'Yes, everyone is friendly, and the place is excellent!')" class="audio-btn-2 flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-indigo-600 hover:bg-indigo-50 font-bold text-xs shadow-sm transition">
+                                        <i class="fa-solid fa-volume-high"></i>
+                                        <span>استمع</span>
+                                    </button>
+                                    <span id="badge-feedback-2" class="hidden text-xs font-bold px-2.5 py-1 rounded-lg"></span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Comment 3: Kinsley -->
+                        <div id="comment-box-3" class="comment-row bg-slate-50/70 border-2 border-slate-200 rounded-2xl p-4 transition-all duration-300 hover:border-indigo-300">
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                <div class="flex items-center gap-3">
+                                    <span class="text-slate-400 font-bold text-sm w-4">3.</span>
+                                    <div class="relative">
+                                        <select id="userAnswer3" class="bg-white border-2 border-slate-300 text-slate-800 font-bold py-1.5 px-3 rounded-xl text-sm outline-none focus:border-indigo-500 transition cursor-pointer">
+                                            <option value="">-- اختر الاسم --</option>
+                                            <option value="Noah">Noah</option>
+                                            <option value="Kinsley">Kinsley</option>
+                                            <option value="Jack">Jack</option>
+                                        </select>
+                                    </div>
+                                    <p id="comment-text-3" class="text-slate-800 text-sm sm:text-base font-medium">
+                                        "It's so <span class="text-rose-600 font-bold">important</span> ⚠️ to have a <span class="text-purple-600 font-bold">lovely</span> 😇 place to meet people."
+                                    </p>
+                                </div>
+                                <div class="flex items-center gap-2 self-end sm:self-center">
+                                    <button onclick="playCommentAudio(3, 'It is so important to have a lovely place to meet people.')" class="audio-btn-3 flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-indigo-600 hover:bg-indigo-50 font-bold text-xs shadow-sm transition">
+                                        <i class="fa-solid fa-volume-high"></i>
+                                        <span>استمع</span>
+                                    </button>
+                                    <span id="badge-feedback-3" class="hidden text-xs font-bold px-2.5 py-1 rounded-lg"></span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Comment 4: Jack -->
+                        <div id="comment-box-4" class="comment-row bg-slate-50/70 border-2 border-slate-200 rounded-2xl p-4 transition-all duration-300 hover:border-indigo-300">
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                <div class="flex items-center gap-3">
+                                    <span class="text-slate-400 font-bold text-sm w-4">4.</span>
+                                    <div class="relative">
+                                        <select id="userAnswer4" class="bg-white border-2 border-slate-300 text-slate-800 font-bold py-1.5 px-3 rounded-xl text-sm outline-none focus:border-indigo-500 transition cursor-pointer">
+                                            <option value="">-- اختر الاسم --</option>
+                                            <option value="Noah">Noah</option>
+                                            <option value="Kinsley">Kinsley</option>
+                                            <option value="Jack">Jack</option>
+                                        </select>
+                                    </div>
+                                    <p id="comment-text-4" class="text-slate-800 text-sm sm:text-base font-medium">
+                                        "The building is <span class="text-blue-600 font-bold">enormous</span> ↔️ and <span class="text-emerald-600 font-bold">tidy</span> 🧼, but it gets a little <span class="text-amber-600 font-bold">noisy</span> 😝 during big events."
+                                    </p>
+                                </div>
+                                <div class="flex items-center gap-2 self-end sm:self-center">
+                                    <button onclick="playCommentAudio(4, 'The building is enormous and tidy, but it gets a little noisy during big events.')" class="audio-btn-4 flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-indigo-600 hover:bg-indigo-50 font-bold text-xs shadow-sm transition">
+                                        <i class="fa-solid fa-volume-high"></i>
+                                        <span>استمع</span>
+                                    </button>
+                                    <span id="badge-feedback-4" class="hidden text-xs font-bold px-2.5 py-1 rounded-lg"></span>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- Check & Reset Action Buttons -->
+                    <div class="mt-6 flex flex-wrap items-center justify-between gap-4">
+                        <div class="flex items-center gap-3">
+                            <button onclick="checkAnswers()" class="px-6 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold rounded-xl shadow-md hover:from-indigo-700 hover:to-purple-700 active:scale-95 transition flex items-center gap-2">
+                                <i class="fa-solid fa-circle-check"></i>
+                                <span>تحقق من الإجابات</span>
+                            </button>
+                            <button onclick="resetAnswers()" class="px-4 py-2.5 bg-slate-100 text-slate-600 hover:bg-slate-200 font-bold rounded-xl text-sm transition">
+                                <i class="fa-solid fa-rotate-left mr-1"></i> إعادة المحاولة
+                            </button>
+                        </div>
+                        <div id="scoreSummary" class="text-sm font-bold text-slate-600 hidden">
+                            <!-- Populated on check -->
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+        </div>
+
+        <!-- SECTION: Key Adjectives Flashcards & Vocabulary Builder -->
+        <div class="bg-white rounded-3xl p-6 md:p-8 shadow-lg border border-slate-200">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-6">
+                <div>
+                    <span class="text-xs font-bold text-indigo-600 uppercase tracking-wider">قاموس المفردات المستهدفة</span>
+                    <h3 class="text-xl font-black text-slate-900 flex items-center gap-2">
+                        <i class="fa-solid fa-spell-check text-indigo-500"></i>
+                        <span>الصفات المميزة في الدرس (Target Adjectives)</span>
+                    </h3>
+                </div>
+                <p class="text-xs text-slate-500">اضغط على أي بطاقة لسماع النطق الإنجليزي السليم مع الترجمة والمعنى السياقي:</p>
+            </div>
+
+            <!-- Adjective Badges / Cards Grid -->
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 font-en">
+                
+                <!-- Adjective 1 -->
+                <button onclick="speakWord('popular', 'شائع / محبوب / واسع الانتشار')" class="vocab-card text-left p-3 rounded-2xl border border-sky-100 bg-sky-50/50 hover:bg-sky-100 hover:border-sky-300 transition duration-200 group">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="font-extrabold text-sky-700 text-base">popular</span>
+                        <i class="fa-solid fa-volume-high text-xs text-sky-400 group-hover:scale-110 transition"></i>
+                    </div>
+                    <span class="text-xs text-slate-600 font-sans block" dir="rtl">محبوب / واسع الانتشار</span>
+                </button>
+
+                <!-- Adjective 2 -->
+                <button onclick="speakWord('interesting', 'مثير للاهتمام / شيق')" class="vocab-card text-left p-3 rounded-2xl border border-teal-100 bg-teal-50/50 hover:bg-teal-100 hover:border-teal-300 transition duration-200 group">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="font-extrabold text-teal-700 text-base">interesting</span>
+                        <i class="fa-solid fa-volume-high text-xs text-teal-400 group-hover:scale-110 transition"></i>
+                    </div>
+                    <span class="text-xs text-slate-600 font-sans block" dir="rtl">شيق / مثير للاهتمام</span>
+                </button>
+
+                <!-- Adjective 3 -->
+                <button onclick="speakWord('funny', 'مضحك / طريف')" class="vocab-card text-left p-3 rounded-2xl border border-amber-100 bg-amber-50/50 hover:bg-amber-100 hover:border-amber-300 transition duration-200 group">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="font-extrabold text-amber-700 text-base">funny</span>
+                        <i class="fa-solid fa-volume-high text-xs text-amber-400 group-hover:scale-110 transition"></i>
+                    </div>
+                    <span class="text-xs text-slate-600 font-sans block" dir="rtl">مضحك / فكاهي</span>
+                </button>
+
+                <!-- Adjective 4 -->
+                <button onclick="speakWord('lucky', 'محظوظ')" class="vocab-card text-left p-3 rounded-2xl border border-purple-100 bg-purple-50/50 hover:bg-purple-100 hover:border-purple-300 transition duration-200 group">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="font-extrabold text-purple-700 text-base">lucky</span>
+                        <i class="fa-solid fa-volume-high text-xs text-purple-400 group-hover:scale-110 transition"></i>
+                    </div>
+                    <span class="text-xs text-slate-600 font-sans block" dir="rtl">محظوظ 🍀</span>
+                </button>
+
+                <!-- Adjective 5 -->
+                <button onclick="speakWord('special', 'مميز / خاص')" class="vocab-card text-left p-3 rounded-2xl border border-pink-100 bg-pink-50/50 hover:bg-pink-100 hover:border-pink-300 transition duration-200 group">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="font-extrabold text-pink-700 text-base">special</span>
+                        <i class="fa-solid fa-volume-high text-xs text-pink-400 group-hover:scale-110 transition"></i>
+                    </div>
+                    <span class="text-xs text-slate-600 font-sans block" dir="rtl">خاص / مميز ✨</span>
+                </button>
+
+                <!-- Adjective 6 -->
+                <button onclick="speakWord('wonderful', 'رائع / بديع')" class="vocab-card text-left p-3 rounded-2xl border border-rose-100 bg-rose-50/50 hover:bg-rose-100 hover:border-rose-300 transition duration-200 group">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="font-extrabold text-rose-700 text-base">wonderful</span>
+                        <i class="fa-solid fa-volume-high text-xs text-rose-400 group-hover:scale-110 transition"></i>
+                    </div>
+                    <span class="text-xs text-slate-600 font-sans block" dir="rtl">رائع للغاية 😍</span>
+                </button>
+
+                <!-- Adjective 7 -->
+                <button onclick="speakWord('amazing', 'مذهل / رائع جداً')" class="vocab-card text-left p-3 rounded-2xl border border-cyan-100 bg-cyan-50/50 hover:bg-cyan-100 hover:border-cyan-300 transition duration-200 group">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="font-extrabold text-cyan-700 text-base">amazing</span>
+                        <i class="fa-solid fa-volume-high text-xs text-cyan-400 group-hover:scale-110 transition"></i>
+                    </div>
+                    <span class="text-xs text-slate-600 font-sans block" dir="rtl">مذهل / مبهر 🤩</span>
+                </button>
+
+                <!-- Adjective 8 -->
+                <button onclick="speakWord('friendly', 'ودود / لطيف')" class="vocab-card text-left p-3 rounded-2xl border border-yellow-100 bg-yellow-50/50 hover:bg-yellow-100 hover:border-yellow-300 transition duration-200 group">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="font-extrabold text-yellow-800 text-base">friendly</span>
+                        <i class="fa-solid fa-volume-high text-xs text-yellow-500 group-hover:scale-110 transition"></i>
+                    </div>
+                    <span class="text-xs text-slate-600 font-sans block" dir="rtl">ودود ومضياف 🙂</span>
+                </button>
+
+                <!-- Adjective 9 -->
+                <button onclick="speakWord('excellent', 'ممتاز / متفوق')" class="vocab-card text-left p-3 rounded-2xl border border-emerald-100 bg-emerald-50/50 hover:bg-emerald-100 hover:border-emerald-300 transition duration-200 group">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="font-extrabold text-emerald-700 text-base">excellent</span>
+                        <i class="fa-solid fa-volume-high text-xs text-emerald-400 group-hover:scale-110 transition"></i>
+                    </div>
+                    <span class="text-xs text-slate-600 font-sans block" dir="rtl">ممتاز / فائق 👍</span>
+                </button>
+
+                <!-- Adjective 10 -->
+                <button onclick="speakWord('important', 'مهم / ذو شأن')" class="vocab-card text-left p-3 rounded-2xl border border-red-100 bg-red-50/50 hover:bg-red-100 hover:border-red-300 transition duration-200 group">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="font-extrabold text-red-700 text-base">important</span>
+                        <i class="fa-solid fa-volume-high text-xs text-red-400 group-hover:scale-110 transition"></i>
+                    </div>
+                    <span class="text-xs text-slate-600 font-sans block" dir="rtl">مهم / ضروري ⚠️</span>
+                </button>
+
+                <!-- Adjective 11 -->
+                <button onclick="speakWord('enormous', 'ضخم / هائل الحجم')" class="vocab-card text-left p-3 rounded-2xl border border-blue-100 bg-blue-50/50 hover:bg-blue-100 hover:border-blue-300 transition duration-200 group">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="font-extrabold text-blue-700 text-base">enormous</span>
+                        <i class="fa-solid fa-volume-high text-xs text-blue-400 group-hover:scale-110 transition"></i>
+                    </div>
+                    <span class="text-xs text-slate-600 font-sans block" dir="rtl">ضخم جداً ↔️</span>
+                </button>
+
+                <!-- Adjective 12 -->
+                <button onclick="speakWord('tidy', 'مرتب / نظيف')" class="vocab-card text-left p-3 rounded-2xl border border-teal-100 bg-teal-50/50 hover:bg-teal-100 hover:border-teal-300 transition duration-200 group">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="font-extrabold text-teal-700 text-base">tidy</span>
+                        <i class="fa-solid fa-volume-high text-xs text-teal-400 group-hover:scale-110 transition"></i>
+                    </div>
+                    <span class="text-xs text-slate-600 font-sans block" dir="rtl">مرتب / منظم 🧼</span>
+                </button>
+
+                <!-- Adjective 13 -->
+                <button onclick="speakWord('noisy', 'صاخب / به ضجيج')" class="vocab-card text-left p-3 rounded-2xl border border-orange-100 bg-orange-50/50 hover:bg-orange-100 hover:border-orange-300 transition duration-200 group">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="font-extrabold text-orange-700 text-base">noisy</span>
+                        <i class="fa-solid fa-volume-high text-xs text-orange-400 group-hover:scale-110 transition"></i>
+                    </div>
+                    <span class="text-xs text-slate-600 font-sans block" dir="rtl">صاخب / عالي الصوت 📢</span>
+                </button>
+
+                <!-- Adjective 14 -->
+                <button onclick="speakWord('lovely', 'جميل / محبب')" class="vocab-card text-left p-3 rounded-2xl border border-pink-100 bg-pink-50/50 hover:bg-pink-100 hover:border-pink-300 transition duration-200 group">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="font-extrabold text-pink-700 text-base">lovely</span>
+                        <i class="fa-solid fa-volume-high text-xs text-pink-400 group-hover:scale-110 transition"></i>
+                    </div>
+                    <span class="text-xs text-slate-600 font-sans block" dir="rtl">جميل / بديع 😇</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- SECTION: Mascot Speaking Challenge & Discussion -->
+        <div id="mascot" class="bg-gradient-to-r from-sky-500 via-indigo-600 to-purple-600 rounded-3xl p-6 md:p-8 text-white shadow-xl relative overflow-hidden transition-all duration-300">
+            <div class="flex flex-col md:flex-row items-center gap-6 relative z-10">
+                <!-- Mascot Character (SVG illustration from page) -->
+                <div class="relative flex-shrink-0 cursor-pointer hover:scale-105 transition-transform" onclick="speakMascotQuestion()">
+                    <div class="w-28 h-28 md:w-32 md:h-32 bg-sky-300 rounded-full flex items-center justify-center shadow-lg relative overflow-hidden border-4 border-white/40 animate-bounce" style="animation-duration: 3s;">
+                        <svg class="w-24 h-24" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <defs>
+                                <radialGradient id="blueBlob" cx="40%" cy="35%" r="60%">
+                                    <stop offset="0%" stop-color="#7dd3fc" />
+                                    <stop offset="70%" stop-color="#0284c7" />
+                                    <stop offset="100%" stop-color="#0369a1" />
+                                </radialGradient>
+                            </defs>
+                            <circle cx="50" cy="52" r="42" fill="url(#blueBlob)"/>
+                            <ellipse cx="37" cy="42" rx="8" ry="11" fill="white"/>
+                            <ellipse cx="63" cy="42" rx="8" ry="11" fill="white"/>
+                            <circle cx="39" cy="43" r="5" fill="#0f172a"/>
+                            <circle cx="65" cy="43" r="5" fill="#0f172a"/>
+                            <circle cx="41" cy="40" r="2.5" fill="white"/>
+                            <circle cx="67" cy="40" r="2.5" fill="white"/>
+                            <ellipse cx="28" cy="53" rx="4" ry="2.5" fill="#f472b6" opacity="0.6"/>
+                            <ellipse cx="72" cy="53" rx="4" ry="2.5" fill="#f472b6" opacity="0.6"/>
+                            <path d="M42 57 Q50 66 58 57" stroke="#0f172a" stroke-width="3" stroke-linecap="round" fill="none"/>
+                        </svg>
+                    </div>
+                    <span class="absolute -bottom-2 bg-amber-400 text-slate-900 font-black text-[10px] px-2.5 py-0.5 rounded-full shadow-md left-1/2 -translate-x-1/2 whitespace-nowrap">
+                        <i class="fa-solid fa-volume-high"></i> انقر للتحدث
+                    </span>
+                </div>
+
+                <!-- Speech Bubble & Discussion Prompts -->
+                <div class="flex-1 space-y-4 w-full" dir="ltr">
+                    <div class="bg-white text-slate-800 p-4 md:p-5 rounded-2xl shadow-md border-2 border-amber-300 relative font-en" dir="ltr" style="direction: ltr; text-align: left;">
+                        <div class="flex items-center justify-between gap-2 mb-2" dir="ltr">
+                            <span class="text-xs font-bold text-indigo-600 uppercase tracking-wider flex items-center gap-1.5">
+                                <i class="fa-solid fa-lightbulb text-amber-500"></i> Mascot Question <span class="text-slate-400 font-sans text-[11px]">(سؤال التفكير)</span>
+                            </span>
+                            <button onclick="speakMascotQuestion()" class="text-xs font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-3 py-1.5 rounded-lg border border-indigo-200 transition flex items-center gap-1.5 shadow-sm active:scale-95">
+                                <i class="fa-solid fa-play text-xs"></i> <span>استمع للسؤال</span>
+                            </button>
+                        </div>
+                        <p id="mascotQuestionText" class="text-base md:text-lg font-bold text-slate-900 leading-snug sync-target" dir="ltr" style="direction: ltr; text-align: left; unicode-bidi: isolate;">
+                            &ldquo;How are your interests different from your friends&rsquo; interests?&rdquo;
+                        </p>
+                    </div>
+
+                    <!-- Discussion Starters / Sample Answers -->
+                    <div class="flex flex-wrap items-center gap-2 text-xs" dir="ltr">
+                        <span class="font-bold text-sky-100 font-sans" dir="rtl">نماذج إجابات للتمرين:</span>
+                        <button onclick="speakSampleAnswer(1)" class="bg-white/20 hover:bg-white/30 backdrop-blur-sm border border-white/30 text-white font-en px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 text-left" dir="ltr">
+                            <i class="fa-solid fa-volume-low text-amber-300"></i>
+                            <span>"I love basketball, but my friend prefers movies."</span>
+                        </button>
+                        <button onclick="speakSampleAnswer(2)" class="bg-white/20 hover:bg-white/30 backdrop-blur-sm border border-white/30 text-white font-en px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 text-left" dir="ltr">
+                            <i class="fa-solid fa-volume-low text-amber-300"></i>
+                            <span>"My interest is table tennis because it's exciting!"</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Toast Notification Container -->
+    <div id="toastNotification" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-3 rounded-2xl shadow-2xl border bg-slate-900/95 text-white backdrop-blur-md transform transition-all duration-300 translate-y-24 opacity-0 pointer-events-none border-slate-700">
+        <i id="toastIcon" class="fa-solid fa-circle-check text-emerald-400 text-lg"></i>
+        <div id="toastMessage" class="text-xs md:text-sm font-semibold">رسالة التنبيه</div>
+    </div>
+
+    <script>
+        /**
+         * Interactive Lesson Application State with Enhanced Voice Synthesis
+         */
+        const state = {
+            speechSynthesis: window.speechSynthesis,
+            voices: [],
+            selectedVoice: null,
+            rate: 0.95,
+            pitch: 1.02,
+            isPlayingAll: false,
+            currentSentenceIndex: 0,
+            toastTimeout: null,
+            fullLessonScript: [
+                { id: "hero", text: "Join the Most Popular Youth Center Around! Click here to find out about all our interesting events." },
+                { id: "card-friday", text: "Funny Fridays. Our fun movie nights!" },
+                { id: "card-saturday", text: "Join our Saturday game night. You might be lucky and win a special prize!" },
+                { id: "card-sports", text: "You will have a wonderful time!" },
+                { id: "comment-box-1", text: "Comment one: Abi said, The game night was great! The games were amazing!" },
+                { id: "comment-box-2", text: "Comment two: Noah said, Yes, everyone is friendly, and the place is excellent!" },
+                { id: "comment-box-3", text: "Comment three: Kinsley said, It is so important to have a lovely place to meet people." },
+                { id: "comment-box-4", text: "Comment four: Jack said, The building is enormous and tidy, but it gets a little noisy during big events." },
+                { id: "mascot", text: "Question: How are your interests different from your friends' interests?" }
+            ],
+            correctAnswers: {
+                userAnswer2: "Noah",
+                userAnswer3: "Kinsley",
+                userAnswer4: "Jack"
+            }
+        };
+
+        function evaluateVoiceQuality(voice) {
+            let score = 0;
+            const name = voice.name.toLowerCase();
+            const lang = voice.lang.toLowerCase();
+
+            if (name.includes('natural') || name.includes('neural') || name.includes('online')) score += 120;
+            if (name.includes('studio') || name.includes('wavenet') || name.includes('premium') || name.includes('enhanced')) score += 100;
+            if (name.includes('google') && !name.includes('android')) score += 80;
+            if (name.includes('samantha') && (name.includes('enhanced') || name.includes('compact') === false)) score += 60;
+            if (name.includes('siri') || name.includes('apple')) score += 50;
+
+            if (lang === 'en-us') score += 30;
+            else if (lang === 'en-gb') score += 25;
+            else if (lang.startsWith('en')) score += 15;
+
+            if (voice.localService === false) score += 20;
+
+            return score;
+        }
+
+        function populateVoices() {
+            if (!('speechSynthesis' in window)) {
+                showToast("متصفحك لا يدعم خاصية تحويل النص لصوت مباشرة.", "warning");
+                return;
+            }
+
+            const allVoices = state.speechSynthesis.getVoices();
+            const englishVoices = allVoices.filter(v => v.lang && v.lang.toLowerCase().startsWith('en'));
+
+            if (englishVoices.length === 0) return;
+
+            englishVoices.sort((a, b) => evaluateVoiceQuality(b) - evaluateVoiceQuality(a));
+            state.voices = englishVoices;
+
+            const voiceSelect = document.getElementById('voiceSelect');
+            if (!voiceSelect) return;
+
+            voiceSelect.innerHTML = '';
+
+            state.voices.forEach((voice, index) => {
+                const opt = document.createElement('option');
+                opt.value = index;
+                const score = evaluateVoiceQuality(voice);
+                let badge = '🎙️';
+                if (score >= 120) badge = '🌟 HD Neural';
+                else if (score >= 80) badge = '✨ Premium';
+                else if (score >= 40) badge = '🔹 Clear';
+
+                let cleanName = voice.name
+                    .replace(/Microsoft|Google|Apple|English|United States|United Kingdom/gi, '')
+                    .replace(/Online \(Natural\)/gi, 'Natural')
+                    .replace(/[()]/g, '')
+                    .trim();
+
+                if (!cleanName) cleanName = `Voice ${index + 1}`;
+
+                opt.textContent = `${badge} ${cleanName} (${voice.lang.slice(0, 5)})`;
+                voiceSelect.appendChild(opt);
+            });
+
+            state.selectedVoice = state.voices[0];
+            voiceSelect.selectedIndex = 0;
+
+            const isHighQuality = evaluateVoiceQuality(state.selectedVoice) >= 80;
+            if (isHighQuality) {
+                showToast(`تم تفعيل الصوت فائق الجودة: ${state.selectedVoice.name.replace(/Google|Microsoft/g, '').trim()} 🌟`, "success");
+            }
+        }
+
+        if ('speechSynthesis' in window) {
+            window.speechSynthesis.onvoiceschanged = populateVoices;
+            populateVoices();
+            setTimeout(populateVoices, 500);
+        }
+
+        function changeVoice(val) {
+            if (val !== "" && state.voices[val]) {
+                state.selectedVoice = state.voices[val];
+                const qualityScore = evaluateVoiceQuality(state.selectedVoice);
+                const tag = qualityScore >= 100 ? "طبيعي فائق الجودة (Natural Neural)" : "عالي الوضوح";
+                showToast(`تم التبديل إلى: ${state.selectedVoice.name.replace(/Microsoft|Google/gi, '').trim()} [${tag}]`, "success");
+            }
+        }
+
+        function testCurrentVoice() {
+            stopAllSpeech();
+            const testSentences = [
+                "Welcome to the youth center! This is the high quality voice for our lesson.",
+                "The game night was great, and everyone is friendly!"
+            ];
+            const sample = testSentences[Math.floor(Math.random() * testSentences.length)];
+            const u = new SpeechSynthesisUtterance(sample);
+            u.lang = state.selectedVoice ? state.selectedVoice.lang : 'en-US';
+            u.rate = state.rate;
+            u.pitch = state.pitch;
+            if (state.selectedVoice) u.voice = state.selectedVoice;
+
+            state.speechSynthesis.speak(u);
+            showToast("🔊 تشغيل عينة تجريبية للصوت المختار...", "info");
+        }
+
+        function updatePlaybackSpeed(val) {
+            state.rate = parseFloat(val);
+            showToast(`تم ضبط سرعة الصوت على: ${val}x`, "info");
+        }
+
+        function wrapTextForSync(elementId, plainText) {
+            const el = document.getElementById(elementId);
+            if (!el) return [];
+            
+            // Strictly enforce LTR direction and left alignment so words never shift or flip in RTL
+            el.setAttribute('dir', 'ltr');
+            el.style.direction = 'ltr';
+            el.style.textAlign = 'left';
+            el.style.unicodeBidi = 'isolate';
+            
+            const words = plainText.trim().split(/\s+/);
+            el.innerHTML = words.map((w, i) => `<span class="karaoke-word" id="${elementId}-w-${i}" dir="ltr">${w}</span>`).join(' ');
+            return words;
+        }
+
+        function speakWithSync(text, targetElementId, onEndCallback = null) {
+            stopAllSpeech();
+
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.rate = state.rate;
+            utterance.pitch = state.pitch;
+            utterance.lang = state.selectedVoice ? state.selectedVoice.lang : 'en-US';
+            if (state.selectedVoice) {
+                utterance.voice = state.selectedVoice;
+            }
+
+            const targetEl = document.getElementById(targetElementId);
+            const originalHTML = targetEl ? targetEl.innerHTML : '';
+            
+            if (targetEl) {
+                wrapTextForSync(targetElementId, text);
+            }
+            let currentWordIdx = 0;
+
+            utterance.onboundary = (event) => {
+                if (event.name === 'word') {
+                    document.querySelectorAll('.karaoke-active').forEach(sp => sp.classList.remove('karaoke-active'));
+                    const wordSpan = document.getElementById(`${targetElementId}-w-${currentWordIdx}`);
+                    if (wordSpan) {
+                        wordSpan.classList.add('karaoke-active');
+                    }
+                    currentWordIdx++;
+                }
+            };
+
+            const containerBox = targetEl?.closest('.comment-row') || targetEl?.closest('.activity-card') || targetEl?.closest('#mascot');
+            if (containerBox) {
+                containerBox.classList.add('sentence-active-container');
+            }
+
+            utterance.onend = () => {
+                if (containerBox) containerBox.classList.remove('sentence-active-container');
+                if (targetEl) {
+                    targetEl.innerHTML = originalHTML;
+                    targetEl.setAttribute('dir', 'ltr');
+                    targetEl.style.direction = 'ltr';
+                    targetEl.style.textAlign = 'left';
+                }
+                if (onEndCallback) onEndCallback();
+            };
+
+            utterance.onerror = () => {
+                if (containerBox) containerBox.classList.remove('sentence-active-container');
+                if (targetEl) {
+                    targetEl.innerHTML = originalHTML;
+                    targetEl.setAttribute('dir', 'ltr');
+                    targetEl.style.direction = 'ltr';
+                    targetEl.style.textAlign = 'left';
+                }
+            };
+
+            state.speechSynthesis.speak(utterance);
+        }
+
+        function speakCardAudio(elementId, btn) {
+            const targetEl = document.getElementById(elementId);
+            if (!targetEl) return;
+            const textToSpeak = targetEl.innerText || targetEl.textContent;
+            
+            animateButton(btn);
+            speakWithSync(textToSpeak, elementId);
+        }
+
+        function playCommentAudio(num, text) {
+            const textElemId = `comment-text-${num}`;
+            const btn = document.querySelector(`.audio-btn-${num}`);
+            if (btn) animateButton(btn);
+            speakWithSync(text, textElemId);
+        }
+
+        function speakWord(word, arabicMeaning) {
+            stopAllSpeech();
+            const utterance = new SpeechSynthesisUtterance(word);
+            utterance.lang = state.selectedVoice ? state.selectedVoice.lang : 'en-US';
+            utterance.rate = Math.min(state.rate, 0.90);
+            utterance.pitch = state.pitch;
+            if (state.selectedVoice) utterance.voice = state.selectedVoice;
+
+            state.speechSynthesis.speak(utterance);
+            showToast(`🔤 "${word}" تعني: ${arabicMeaning}`, "info");
+        }
+
+        function speakMascotQuestion() {
+            const question = "How are your interests different from your friends' interests?";
+            speakWithSync(question, 'mascotQuestionText');
+            showToast("استمع لسؤال الشخصية وأخبرنا برأيك في ركن التحدث!", "info");
+        }
+
+        function speakSampleAnswer(num) {
+            const ans = num === 1 
+                ? "I love playing basketball, but my friend prefers watching movies."
+                : "My interest is table tennis because it is exciting and friendly.";
+            stopAllSpeech();
+            const u = new SpeechSynthesisUtterance(ans);
+            u.lang = state.selectedVoice ? state.selectedVoice.lang : 'en-US';
+            u.rate = state.rate;
+            u.pitch = state.pitch;
+            if (state.selectedVoice) u.voice = state.selectedVoice;
+            state.speechSynthesis.speak(u);
+            showToast("استمع لنموذج الإجابة لمساعدتك في بناء جملتك الخاصة", "info");
+        }
+
+        function speakSentence(text, btn) {
+            if (btn) animateButton(btn);
+            stopAllSpeech();
+            const u = new SpeechSynthesisUtterance(text);
+            u.lang = state.selectedVoice ? state.selectedVoice.lang : 'en-US';
+            u.rate = state.rate;
+            u.pitch = state.pitch;
+            if (state.selectedVoice) u.voice = state.selectedVoice;
+            state.speechSynthesis.speak(u);
+        }
+
+        function animateButton(btn) {
+            if (!btn) return;
+            btn.classList.add('scale-95', 'bg-indigo-100');
+            setTimeout(() => {
+                btn.classList.remove('scale-95', 'bg-indigo-100');
+            }, 250);
+        }
+
+        function toggleMasterLessonAudio() {
+            if (state.isPlayingAll) {
+                stopAllSpeech();
+                return;
+            }
+
+            state.isPlayingAll = true;
+            state.currentSentenceIndex = 0;
+            const playBtn = document.getElementById('masterPlayBtn');
+            if (playBtn) {
+                playBtn.classList.replace('from-emerald-500', 'from-rose-500');
+                playBtn.classList.replace('to-teal-600', 'to-rose-600');
+            }
+            const icon = document.getElementById('masterPlayIcon');
+            if (icon) icon.className = 'fa-solid fa-pause';
+            const txt = document.getElementById('masterPlayText');
+            if (txt) txt.textContent = 'إيقاف مؤقت للقراءة';
+
+            showToast("بدء القراءة المتزامنة للدرس كاملاً بالصوت المختار!", "info");
+            playNextMasterItem();
+        }
+
+        function playNextMasterItem() {
+            if (!state.isPlayingAll) return;
+
+            if (state.currentSentenceIndex >= state.fullLessonScript.length) {
+                stopAllSpeech();
+                showToast("🎉 انتهت قراءة الدرس كاملاً! أحسنت!", "success");
+                triggerConfetti();
+                return;
+            }
+
+            const item = state.fullLessonScript[state.currentSentenceIndex];
+            state.currentSentenceIndex++;
+
+            const utterance = new SpeechSynthesisUtterance(item.text);
+            utterance.rate = state.rate;
+            utterance.pitch = state.pitch;
+            utterance.lang = state.selectedVoice ? state.selectedVoice.lang : 'en-US';
+            if (state.selectedVoice) utterance.voice = state.selectedVoice;
+
+            const el = document.getElementById(item.id);
+            if (el) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                el.classList.add('sentence-active-container');
+            }
+
+            utterance.onend = () => {
+                if (el) el.classList.remove('sentence-active-container');
+                setTimeout(() => {
+                    playNextMasterItem();
+                }, 400);
+            };
+
+            utterance.onerror = () => {
+                if (el) el.classList.remove('sentence-active-container');
+                stopAllSpeech();
+            };
+
+            state.speechSynthesis.speak(utterance);
+        }
+
+        function stopAllSpeech() {
+            state.isPlayingAll = false;
+            if ('speechSynthesis' in window) {
+                state.speechSynthesis.cancel();
+            }
+            document.querySelectorAll('.sentence-active-container').forEach(c => c.classList.remove('sentence-active-container'));
+            document.querySelectorAll('.karaoke-active').forEach(k => k.classList.remove('karaoke-active'));
+            
+            const playBtn = document.getElementById('masterPlayBtn');
+            if (playBtn) {
+                playBtn.classList.replace('from-rose-500', 'from-emerald-500');
+                playBtn.classList.replace('to-rose-600', 'to-teal-600');
+                const icon = document.getElementById('masterPlayIcon');
+                if (icon) icon.className = 'fa-solid fa-play';
+                const txt = document.getElementById('masterPlayText');
+                if (txt) txt.textContent = 'استمع للدرس كاملاً';
+            }
+        }
+
+        function checkAnswers() {
+            let correctCount = 0;
+            const total = 3;
+
+            for (let i = 2; i <= 4; i++) {
+                const select = document.getElementById(`userAnswer${i}`);
+                const feedbackBadge = document.getElementById(`badge-feedback-${i}`);
+                const rowBox = document.getElementById(`comment-box-${i}`);
+                if (!select || !feedbackBadge || !rowBox) continue;
+
+                const userVal = select.value.trim();
+                const correctVal = state.correctAnswers[`userAnswer${i}`];
+
+                feedbackBadge.classList.remove('hidden', 'text-emerald-700', 'bg-emerald-50', 'border-emerald-300', 'text-rose-700', 'bg-rose-50', 'border-rose-300');
+
+                if (userVal === correctVal) {
+                    correctCount++;
+                    feedbackBadge.classList.add('text-emerald-700', 'bg-emerald-50', 'border', 'border-emerald-300');
+                    feedbackBadge.innerHTML = `<i class="fa-solid fa-check mr-1"></i> صحيح (${correctVal})`;
+                    rowBox.classList.add('border-emerald-300', 'bg-emerald-50/30');
+                    rowBox.classList.remove('border-rose-300', 'bg-rose-50/30');
+                } else {
+                    feedbackBadge.classList.add('text-rose-700', 'bg-rose-50', 'border', 'border-rose-300');
+                    feedbackBadge.innerHTML = `<i class="fa-solid fa-xmark mr-1"></i> الإجابة: ${correctVal}`;
+                    rowBox.classList.add('border-rose-300', 'bg-rose-50/30');
+                    rowBox.classList.remove('border-emerald-300', 'bg-emerald-50/30');
+                }
+            }
+
+            const scoreBox = document.getElementById('scoreSummary');
+            if (scoreBox) {
+                scoreBox.classList.remove('hidden');
+                scoreBox.innerHTML = `الدرجة: <span class="text-indigo-600 font-black text-base">${correctCount + 1} / 4</span> (مع المثال الأول)`;
+            }
+
+            if (correctCount === total) {
+                triggerConfetti();
+                showToast("ممتاز جداً! جميع إجاباتك صحيحة 100% 🌟", "success");
+            } else {
+                showToast(`أحسنت المحاولة! حصلت على ${correctCount + 1} من 4. راجع الإجابات وحاول مرة أخرى.`, "info");
+            }
+        }
+
+        function resetAnswers() {
+            for (let i = 2; i <= 4; i++) {
+                const select = document.getElementById(`userAnswer${i}`);
+                if (select) select.value = "";
+                const feedbackBadge = document.getElementById(`badge-feedback-${i}`);
+                if (feedbackBadge) feedbackBadge.classList.add('hidden');
+                const rowBox = document.getElementById(`comment-box-${i}`);
+                if (rowBox) rowBox.classList.remove('border-emerald-300', 'bg-emerald-50/30', 'border-rose-300', 'bg-rose-50/30');
+            }
+            const scoreBox = document.getElementById('scoreSummary');
+            if (scoreBox) scoreBox.classList.add('hidden');
+            showToast("تمت إعادة تعيين النشاط للتمرن من جديد", "info");
+        }
+
+        function showToast(message, type = "info") {
+            const toast = document.getElementById('toastNotification');
+            const toastMsg = document.getElementById('toastMessage');
+            const toastIcon = document.getElementById('toastIcon');
+
+            // Defensive null guard
+            if (!toast || !toastMsg || !toastIcon) {
+                console.log(`[Toast ${type}]: ${message}`);
+                return;
+            }
+
+            toastMsg.textContent = message;
+            if (type === "success") {
+                toastIcon.className = "fa-solid fa-circle-check text-emerald-400 text-lg";
+            } else if (type === "warning") {
+                toastIcon.className = "fa-solid fa-triangle-exclamation text-amber-400 text-lg";
+            } else {
+                toastIcon.className = "fa-solid fa-circle-info text-sky-400 text-lg";
+            }
+
+            toast.classList.remove('translate-y-24', 'opacity-0', 'pointer-events-none');
+            toast.classList.add('translate-y-0', 'opacity-100');
+
+            if (state.toastTimeout) clearTimeout(state.toastTimeout);
+            state.toastTimeout = setTimeout(() => {
+                toast.classList.add('translate-y-24', 'opacity-0', 'pointer-events-none');
+                toast.classList.remove('translate-y-0', 'opacity-100');
+            }, 3500);
+        }
+
+        function triggerConfetti() {
+            if (typeof confetti === 'function') {
+                confetti({
+                    particleCount: 80,
+                    spread: 70,
+                    origin: { y: 0.7 }
+                });
+            }
+        }
+
+        function toggleHighlightModeGuide() {
+            const banner = document.getElementById('guideBanner');
+            if (banner) {
+                banner.classList.toggle('hidden');
+                showToast("تم تبديل ظهور بطاقة إرشادات التزامن الصوتي", "info");
+            }
+        }
+    </script>
+</body>
+</html>
